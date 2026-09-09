@@ -1405,13 +1405,16 @@ func replaceAll(r *strings.Replacer, in []string) []string {
 	return out
 }
 
+// replaceNeeds copies the input and overrides only the fields substitution
+// applies to, so a field added to Needs later is carried through rather than
+// silently dropped.
 func replaceNeeds(r *strings.Replacer, in *Needs) *Needs {
 	if in == nil {
 		return nil
 	}
-	return &Needs{
-		Packages: replaceAll(r, in.Packages),
-	}
+	out := *in
+	out.Packages = replaceAll(r, in.Packages)
+	return &out
 }
 
 func replaceMap(r *strings.Replacer, in map[string]string) map[string]string {
@@ -1463,21 +1466,20 @@ func replaceImageConfig(r *strings.Replacer, in apko_types.ImageConfiguration) a
 	}
 }
 
+// replacePipeline copies the input and overrides only the fields substitution
+// applies to, so a field added to Pipeline later is carried through rather than
+// silently dropped.
 func replacePipeline(r *strings.Replacer, in Pipeline) Pipeline {
-	return Pipeline{
-		Name:        r.Replace(in.Name),
-		Uses:        in.Uses,
-		With:        replaceMap(r, in.With),
-		Runs:        r.Replace(in.Runs),
-		Pipeline:    replacePipelines(r, in.Pipeline),
-		Inputs:      in.Inputs,
-		Needs:       replaceNeeds(r, in.Needs),
-		Label:       in.Label,
-		If:          r.Replace(in.If),
-		Assertions:  in.Assertions,
-		WorkDir:     r.Replace(in.WorkDir),
-		Environment: replaceMap(r, in.Environment),
-	}
+	out := in
+	out.Name = r.Replace(in.Name)
+	out.With = replaceMap(r, in.With)
+	out.Runs = r.Replace(in.Runs)
+	out.Pipeline = replacePipelines(r, in.Pipeline)
+	out.Needs = replaceNeeds(r, in.Needs)
+	out.If = r.Replace(in.If)
+	out.WorkDir = r.Replace(in.WorkDir)
+	out.Environment = replaceMap(r, in.Environment)
+	return out
 }
 
 func replacePipelines(r *strings.Replacer, in []Pipeline) []Pipeline {
@@ -1492,14 +1494,17 @@ func replacePipelines(r *strings.Replacer, in []Pipeline) []Pipeline {
 	return out
 }
 
+// replaceTest copies the input and overrides only the fields substitution
+// applies to, so a field added to Test later is carried through rather than
+// silently dropped.
 func replaceTest(r *strings.Replacer, in *Test) *Test {
 	if in == nil {
 		return nil
 	}
-	return &Test{
-		Environment: replaceImageConfig(r, in.Environment),
-		Pipeline:    replacePipelines(r, in.Pipeline),
-	}
+	out := *in
+	out.Environment = replaceImageConfig(r, in.Environment)
+	out.Pipeline = replacePipelines(r, in.Pipeline)
+	return &out
 }
 
 func replaceUpdate(r *strings.Replacer, in Update) Update {

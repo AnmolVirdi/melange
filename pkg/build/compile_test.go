@@ -259,6 +259,87 @@ func TestCompileCapabilities(t *testing.T) {
 		}
 	})
 
+	// The same manifest a user writes, taken through ParseConfiguration rather
+	// than built as a Go literal: inline capabilities have to survive parsing to
+	// reach the runners and to be validated.
+	t.Run("inline capabilities from a parsed manifest", func(t *testing.T) {
+		write := func(t *testing.T, cap string) string {
+			t.Helper()
+			fp := filepath.Join(t.TempDir(), "melange.yaml")
+			if err := os.WriteFile(fp, []byte(`
+package:
+  name: caps
+  version: 0.0.1
+  epoch: 0
+  description: inline capabilities
+
+pipeline:
+  - needs:
+      capabilities:
+        add:
+          - `+cap+`
+    runs: "true"
+
+test:
+  pipeline:
+    - needs:
+        capabilities:
+          add:
+            - `+cap+`
+      runs: "true"
+`), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			return fp
+		}
+
+		ctx := context.Background()
+
+		cfg, err := config.ParseConfiguration(ctx, write(t, "CAP_SYS_ADMIN"))
+		if err != nil {
+			t.Fatalf("failed to parse configuration: %v", err)
+		}
+
+		build := &Build{Configuration: cfg}
+		if err := build.Compile(ctx); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if got, want := build.Configuration.Capabilities.Add, []string{"CAP_SYS_ADMIN"}; !slices.Equal(got, want) {
+			t.Errorf("build capabilities: want %v, got %v", want, got)
+		}
+		// Recorded on the test so a compiled configuration still declares what
+		// `melange test` needs, without widening the build runner.
+		if got, want := build.Configuration.Test.Capabilities.Add, []string{"CAP_SYS_ADMIN"}; !slices.Equal(got, want) {
+			t.Errorf("compiled test capabilities: want %v, got %v", want, got)
+		}
+
+		testCfg, err := config.ParseConfiguration(ctx, write(t, "CAP_SYS_ADMIN"))
+		if err != nil {
+			t.Fatalf("failed to parse configuration: %v", err)
+		}
+
+		test := &Test{Package: "caps", Configuration: *testCfg}
+		if err := test.Compile(ctx); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if got, want := test.Configuration.Test.Capabilities.Add, []string{"CAP_SYS_ADMIN"}; !slices.Equal(got, want) {
+			t.Errorf("test capabilities: want %v, got %v", want, got)
+		}
+
+		// A misspelled name in the inline form fails the build, as documented.
+		badCfg, err := config.ParseConfiguration(ctx, write(t, "CAP_SYS_ADMN"))
+		if err != nil {
+			t.Fatalf("failed to parse configuration: %v", err)
+		}
+		err = (&Build{Configuration: badCfg}).Compile(ctx)
+		if err == nil {
+			t.Fatal("expected an error for an unknown capability, got none")
+		}
+		if !strings.Contains(err.Error(), "CAP_SYS_ADMN") {
+			t.Errorf("error should name the offending capability, got: %v", err)
+		}
+	})
+
 	// A misspelled capability is rejected while compiling, rather than by the
 	// runner once the container is created.
 	t.Run("unknown capability fails compile", func(t *testing.T) {

@@ -33,7 +33,7 @@ needs:
       - CAP_SYS_ADMIN
 ```
 
-Capabilities declared by build pipelines are added to the build runner. Capabilities declared by test pipelines are scoped to that test's runner under `melange test`, so a capability one subpackage's test needs is not granted to sibling tests or to the build runner. Names are checked while the pipeline is compiled, so a misspelled `CAP_*` fails the build rather than the container.
+Capabilities declared by build pipelines are added to the build runner. Capabilities declared by test pipelines are scoped to that test's runner under `melange test`, so a capability one subpackage's test needs is not granted to sibling tests or to the build runner. Compilation records them under the test's `capabilities`, so they survive into a compiled configuration and are still applied when testing it. Names are checked while the pipeline is compiled, so a misspelled `CAP_*` fails the build rather than the container.
 
 ## Where does Melange build?
 

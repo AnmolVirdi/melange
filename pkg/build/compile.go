@@ -195,10 +195,14 @@ func (b *Build) Compile(ctx context.Context, opts ...CompileOption) error {
 		// Sort and remove duplicates.
 		te.Packages = slices.Compact(slices.Sorted(slices.Values(te.Packages)))
 
-		// Capabilities from test pipelines are intentionally not applied here:
-		// `melange build` never runs the test pipelines, so granting them to the
-		// build runner would only over-privilege it. Test.Compile scopes them to
-		// each test's runner under `melange test`.
+		// Capabilities gathered from the test pipelines are recorded on the test
+		// rather than on b.Configuration.Capabilities: `melange build` never runs
+		// the test pipelines, so granting them to the build runner would only
+		// over-privilege it. Recording them here keeps the requirement in the
+		// compiled configuration, so `melange test` on a compiled manifest (or on
+		// the .melange.yaml embedded in the APK) still gets them, mirroring how
+		// needs.packages is folded into test.environment.
+		addCapabilities(&cfg.Subpackages[i].Test.Capabilities, tc.Capabilities)
 	}
 
 	ic := &b.Configuration.Environment.Contents
@@ -223,6 +227,10 @@ func (b *Build) Compile(ctx context.Context, opts ...CompileOption) error {
 
 		// Sort and remove duplicates.
 		te.Packages = slices.Compact(slices.Sorted(slices.Values(te.Packages)))
+
+		// As above: scoped to the test's runner, not the build runner, but kept in
+		// the compiled configuration so it survives a compile/test round trip.
+		addCapabilities(&b.Configuration.Test.Capabilities, tc.Capabilities)
 	}
 
 	return nil
